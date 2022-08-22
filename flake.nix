@@ -1,37 +1,48 @@
 {
   inputs = {
-    nixpkgs = {
-      url = "github:nixos/nixpkgs/nixos-unstable";
-    };
-    flake-utils = {
-      url = "github:numtide/flake-utils";
-    };
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     naersk = {
       url = "github:nix-community/naersk";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    devshell = {
-      url = "github:numtide/devshell";
-    };
+
+    # dev
+    devshell.url = "github:numtide/devshell";
+    flake-utils.url = "github:numtide/flake-utils";
     flake-compat = {
       url = "github:edolstra/flake-compat";
       flake = false;
     };
   };
-  outputs = { self, nixpkgs, flake-utils, naersk, devshell, ... } @ inputs:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
+  outputs = {
+    self,
+    nixpkgs,
+    naersk,
+    devshell,
+    flake-utils,
+    ...
+  } @ inputs:
+    flake-utils.lib.eachDefaultSystem (
+      system: let
+        inherit (pkgs) lib;
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ devshell.overlay ];
+          overlays = [
+            devshell.overlay
+          ];
         };
-        naersk-lib = naersk.lib."${system}";
-      in
-      rec {
+        naersk' = pkgs.callPackage naersk {};
+      in rec {
         # `nix build`
-        packages.satysfi-language-server = naersk-lib.buildPackage {
+        packages.satysfi-language-server = naersk'.buildPackage {
           pname = "satysfi-language-server";
-          root = ./.;
+          root = builtins.path {
+            path = ./.;
+            filter = name: type:
+              (lib.hasPrefix (toString ./src) name)
+              || (name == toString ./Cargo.toml)
+              || (name == toString ./Cargo.lock);
+          };
         };
         packages.default = packages.satysfi-language-server;
 
@@ -41,10 +52,17 @@
         };
         apps.default = apps.satysfi-language-server;
 
-        # `nix develop`
         devShell = pkgs.devshell.mkShell {
-          imports = [
-            (pkgs.devshell.importTOML ./devshell.toml)
+          packages = with pkgs; [
+            gcc
+            cargo
+            rustc
+            rustfmt
+
+            # develop
+            treefmt
+            alejandra
+            taplo-cli
           ];
         };
       }
