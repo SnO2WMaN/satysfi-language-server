@@ -53,6 +53,12 @@
         apps.default = apps.satysfi-language-server;
 
         devShell = pkgs.devshell.mkShell {
+          commands = with pkgs; [
+            {
+              package = "treefmt";
+              category = "formatter";
+            }
+          ];
           packages = with pkgs; [
             gcc
             cargo
@@ -60,7 +66,6 @@
             rustfmt
 
             # develop
-            treefmt
             alejandra
             taplo-cli
           ];
