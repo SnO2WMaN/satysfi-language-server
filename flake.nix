@@ -63,11 +63,11 @@
             gcc
             cargo
             rustc
-            rustfmt
 
             # develop
             alejandra
             taplo-cli
+            rustfmt
           ];
         };
       }
