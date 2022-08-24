@@ -5,6 +5,7 @@
       url = "github:nix-community/naersk";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-filter.url = "github:numtide/nix-filter";
 
     # dev
     devshell.url = "github:numtide/devshell";
@@ -18,32 +19,42 @@
     self,
     nixpkgs,
     naersk,
+    nix-filter,
     devshell,
     flake-utils,
     ...
   } @ inputs:
-    flake-utils.lib.eachDefaultSystem (
+    {
+      overlays.default = final: prev: let
+        naersk' = final.callPackage naersk {};
+      in {
+        satysfi-language-server = naersk'.buildPackage {
+          pname = "satysfi-language-server";
+          root = with nix-filter.lib;
+            filter {
+              root = ./.;
+              include = [
+                "Cargo.toml"
+                "Cargo.lock"
+                (inDirectory "src")
+              ];
+            };
+        };
+      };
+    }
+    // flake-utils.lib.eachDefaultSystem (
       system: let
         inherit (pkgs) lib;
         pkgs = import nixpkgs {
           inherit system;
           overlays = [
             devshell.overlay
+            self.overlays.default
           ];
         };
-        naersk' = pkgs.callPackage naersk {};
       in rec {
         # `nix build`
-        packages.satysfi-language-server = naersk'.buildPackage {
-          pname = "satysfi-language-server";
-          root = builtins.path {
-            path = ./.;
-            filter = name: type:
-              (lib.hasPrefix (toString ./src) name)
-              || (name == toString ./Cargo.toml)
-              || (name == toString ./Cargo.lock);
-          };
-        };
+        packages.satysfi-language-server = pkgs.satysfi-language-server;
         packages.default = packages.satysfi-language-server;
 
         # `nix run`
